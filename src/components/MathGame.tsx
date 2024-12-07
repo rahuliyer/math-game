@@ -81,11 +81,26 @@ const MathGame = () => {
     let newNum1, newNum2;
 
     if (newOperation === '+') {
-      newNum1 = Math.floor(Math.random() * (range.max - range.min)) + range.min;
-      newNum2 = Math.floor(Math.random() * (range.max - newNum1)) + range.min;
+      // Generate first number
+      const smaller = Math.floor(Math.random() * (range.max - range.min - MIN_DIFFERENCE)) + range.min;
+      // Generate larger number ensuring MIN_DIFFERENCE gap
+      const minLarger = Math.max(range.min, smaller + MIN_DIFFERENCE);
+      const maxLarger = Math.min(range.max, smaller + (range.max - smaller));
+      const larger = Math.floor(Math.random() * (maxLarger - minLarger)) + minLarger;
+
+      // Randomly decide which number goes first
+      if (Math.random() < 0.5) {
+        newNum1 = smaller;
+        newNum2 = larger;
+      } else {
+        newNum1 = larger;
+        newNum2 = smaller;
+      }
     } else {
+      // For subtraction, first number must be larger
       newNum1 = Math.floor(Math.random() * (range.max - range.min - MIN_DIFFERENCE)) + range.min + MIN_DIFFERENCE;
-      newNum2 = Math.floor(Math.random() * (newNum1 - range.min - MIN_DIFFERENCE)) + range.min;
+      const maxNum2 = newNum1 - MIN_DIFFERENCE;
+      newNum2 = Math.floor(Math.random() * (maxNum2 - range.min)) + range.min;
     }
 
     setNum1(newNum1);
