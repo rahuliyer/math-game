@@ -1,15 +1,22 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Heart, Star, TrendingUp, Volume2, VolumeX } from 'lucide-react';
 
 // Constants
-const STREAK_FOR_LEVEL_UP = 10;
+const STREAK_FOR_LEVEL_UP = 5;
 const MAX_LEVEL = 4;
 const MAX_LIVES = 5;
 const MIN_DIFFERENCE = 5;
+
+// Audio Context type
+declare global {
+  interface Window {
+    webkitAudioContext: typeof AudioContext;
+  }
+}
 
 const MathGame = () => {
   const [score, setScore] = useState(0);
@@ -25,47 +32,37 @@ const MathGame = () => {
   const [isNewHighScore, setIsNewHighScore] = useState(false);
   const [level, setLevel] = useState(1);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
 
-  // Audio context setup
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const initAudioContext = useCallback(() => {
+    if (!audioContext && typeof window !== 'undefined') {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      setAudioContext(ctx);
+    }
+  }, [audioContext]);
 
-  const getDifficultyRange = useCallback(() => {
-    const ranges: Record<number, { max: number; min: number }> = {
-      1: { max: 20, min: 1 },
-      2: { max: 30, min: 10 },
-      3: { max: 50, min: 20 },
-      4: { max: 100, min: 30 },
-    };
-    return ranges[Math.min(level, MAX_LEVEL) as 1 | 2 | 3 | 4] || ranges[1];
-  }, [level]);
-
-  // Sound generation functions
   const playSound = useCallback((frequency: number, duration: number, type: OscillatorType = 'sine') => {
-    if (!soundEnabled) return;
+    if (!soundEnabled || !audioContext) return;
 
     try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-      }
-
-      const oscillator = audioContextRef.current.createOscillator();
-      const gainNode = audioContextRef.current.createGain();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
 
       oscillator.connect(gainNode);
-      gainNode.connect(audioContextRef.current.destination);
+      gainNode.connect(audioContext.destination);
 
       oscillator.type = type;
       oscillator.frequency.value = frequency;
 
-      gainNode.gain.setValueAtTime(0.2, audioContextRef.current.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + duration);
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
 
       oscillator.start();
-      oscillator.stop(audioContextRef.current.currentTime + duration);
+      oscillator.stop(audioContext.currentTime + duration);
     } catch (error) {
       console.error('Error playing sound:', error);
     }
-  }, [soundEnabled]);
+  }, [soundEnabled, audioContext]);
 
   const playCorrectSound = useCallback(() => {
     playSound(800, 0.1, 'sine');
@@ -81,6 +78,32 @@ const MathGame = () => {
     setTimeout(() => playSound(800, 0.1, 'sine'), 100);
     setTimeout(() => playSound(1000, 0.2, 'sine'), 200);
   }, [playSound]);
+
+  useEffect(() => {
+    const handleInteraction = () => {
+      if (audioContext?.state === 'suspended') {
+        audioContext.resume();
+      }
+    };
+
+    document.addEventListener('touchstart', handleInteraction);
+    document.addEventListener('click', handleInteraction);
+
+    return () => {
+      document.removeEventListener('touchstart', handleInteraction);
+      document.removeEventListener('click', handleInteraction);
+    };
+  }, [audioContext]);
+
+  const getDifficultyRange = useCallback(() => {
+    const ranges: Record<number, { max: number; min: number }> = {
+      1: { max: 20, min: 1 },
+      2: { max: 30, min: 10 },
+      3: { max: 50, min: 20 },
+      4: { max: 100, min: 30 },
+    };
+    return ranges[Math.min(level, MAX_LEVEL) as 1 | 2 | 3 | 4] || ranges[1];
+  }, [level]);
 
   const generateProblem = useCallback(() => {
     const range = getDifficultyRange();
@@ -104,6 +127,10 @@ const MathGame = () => {
   }, [getDifficultyRange]);
 
   const checkAnswer = useCallback(() => {
+    if (!audioContext) {
+      initAudioContext();
+    }
+
     const correctAnswer = operation === '+'
       ? num1 + num2
       : num1 - num2;
@@ -153,7 +180,7 @@ const MathGame = () => {
       }
     }, 1500);
   }, [answer, generateProblem, highScore, level, lives, num1, num2, operation,
-      score, streak, playCorrectSound, playWrongSound, playLevelUpSound]);
+      score, streak, playCorrectSound, playWrongSound, playLevelUpSound, audioContext, initAudioContext]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && answer !== '') {
@@ -236,7 +263,10 @@ const MathGame = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setSoundEnabled(!soundEnabled)}
+            onClick={() => {
+              initAudioContext();
+              setSoundEnabled(!soundEnabled);
+            }}
             className="h-8 w-8"
           >
             {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
