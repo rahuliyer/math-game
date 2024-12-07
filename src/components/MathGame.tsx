@@ -15,6 +15,7 @@ const MIN_DIFFERENCE = 5;
 const correctSound = typeof Audio !== 'undefined' ? new Audio('/correct.mp3') : null;
 const wrongSound = typeof Audio !== 'undefined' ? new Audio('/wrong.mp3') : null;
 const levelUpSound = typeof Audio !== 'undefined' ? new Audio('/levelup.mp3') : null;
+const newHighScoreSound = typeof Audio !== 'undefined' ? new Audio('/new_high_score.mp3') : null;
 
 const MathGame = () => {
   const [score, setScore] = useState(0);
@@ -30,6 +31,7 @@ const MathGame = () => {
   const [isNewHighScore, setIsNewHighScore] = useState(false);
   const [level, setLevel] = useState(1);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [gameOver, setGameOver] = useState(false);
 
   const playSound = useCallback((sound: HTMLAudioElement | null) => {
     if (soundEnabled && sound) {
@@ -50,6 +52,19 @@ const MathGame = () => {
     playSound(levelUpSound);
   }, [playSound]);
 
+  const playNewHighScoreSound = useCallback(() => {
+    playSound(newHighScoreSound);
+  }, [playSound]);
+
+  // Check for game over and high score
+  useEffect(() => {
+    if (gameOver && isNewHighScore) {
+      setTimeout(() => {
+        playNewHighScoreSound();
+      }, 500);
+    }
+  }, [gameOver, isNewHighScore, playNewHighScoreSound]);
+
   const getDifficultyRange = useCallback(() => {
     const ranges: Record<number, { max: number; min: number }> = {
       1: { max: 20, min: 1 },
@@ -69,7 +84,6 @@ const MathGame = () => {
       newNum1 = Math.floor(Math.random() * (range.max - range.min)) + range.min;
       newNum2 = Math.floor(Math.random() * (range.max - newNum1)) + range.min;
     } else {
-      // Ensure difference is at least MIN_DIFFERENCE
       newNum1 = Math.floor(Math.random() * (range.max - range.min - MIN_DIFFERENCE)) + range.min + MIN_DIFFERENCE;
       newNum2 = Math.floor(Math.random() * (newNum1 - range.min - MIN_DIFFERENCE)) + range.min;
     }
@@ -106,14 +120,14 @@ const MathGame = () => {
       }
 
       if (score + 1 > highScore) {
-        playLevelUpSound();
         setHighScore(score + 1);
         setIsNewHighScore(true);
         localStorage.setItem('mathGameHighScore', (score + 1).toString());
       }
     } else {
       playWrongSound();
-      setLives(lives - 1);
+      const newLives = lives - 1;
+      setLives(newLives);
       setStreak(0);
       setFeedback(`Not quite! The answer was ${correctAnswer}. Try again!`);
       setShowCelebration(false);
@@ -121,6 +135,10 @@ const MathGame = () => {
       if (level > 1) {
         setLevel(level - 1);
         setFeedback(`Let's go back to Level ${level - 1} and try again!`);
+      }
+
+      if (newLives === 0) {
+        setGameOver(true);
       }
     }
 
@@ -151,6 +169,16 @@ const MathGame = () => {
   useEffect(() => {
     generateProblem();
   }, [level, generateProblem]);
+
+  const resetGame = () => {
+    setLives(3);
+    setScore(0);
+    setStreak(0);
+    setLevel(1);
+    setIsNewHighScore(false);
+    setGameOver(false);
+    generateProblem();
+  };
 
   const CelebrationStars = () => (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -189,14 +217,7 @@ const MathGame = () => {
           )}
 
           <Button
-            onClick={() => {
-              setLives(3);
-              setScore(0);
-              setStreak(0);
-              setLevel(1);
-              setIsNewHighScore(false);
-              generateProblem();
-            }}
+            onClick={resetGame}
             className="w-full bg-blue-500 hover:bg-blue-600 py-6 text-lg"
           >
             Play Again
