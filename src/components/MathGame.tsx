@@ -9,6 +9,7 @@ import { Trophy, Heart, Star, TrendingUp } from 'lucide-react';
 const STREAK_FOR_LEVEL_UP = 5;
 const MAX_LEVEL = 4;
 const MAX_LIVES = 5;
+const MIN_DIFFERENCE = 5;
 
 const MathGame = () => {
   const [score, setScore] = useState(0);
@@ -37,10 +38,17 @@ const MathGame = () => {
   const generateProblem = useCallback(() => {
     const range = getDifficultyRange();
     const newOperation = Math.random() < 0.5 ? '+' : '-';
-    const newNum1 = Math.floor(Math.random() * (range.max - range.min)) + range.min;
-    const newNum2 = newOperation === '+'
-      ? Math.floor(Math.random() * (range.max - newNum1)) + range.min
-      : Math.floor(Math.random() * (newNum1 - range.min)) + range.min;
+    let newNum1, newNum2;
+
+    if (newOperation === '+') {
+      // Addition logic remains the same
+      newNum1 = Math.floor(Math.random() * (range.max - range.min)) + range.min;
+      newNum2 = Math.floor(Math.random() * (range.max - newNum1)) + range.min;
+    } else {
+      // Modified subtraction logic to ensure difference > MIN_DIFFERENCE
+      newNum1 = Math.floor(Math.random() * (range.max - range.min - MIN_DIFFERENCE)) + range.min + MIN_DIFFERENCE;
+      newNum2 = Math.floor(Math.random() * (newNum1 - range.min - MIN_DIFFERENCE)) + range.min;
+    }
 
     setNum1(newNum1);
     setNum2(newNum2);
