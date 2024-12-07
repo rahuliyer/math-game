@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trophy, Heart, Star, TrendingUp, Volume2, VolumeX } from 'lucide-react';
 
 // Constants
-const STREAK_FOR_LEVEL_UP = 2;
+const STREAK_FOR_LEVEL_UP = 10;
 const MAX_LEVEL = 4;
 const MAX_LIVES = 5;
 const MIN_DIFFERENCE = 5;
@@ -56,7 +56,6 @@ const MathGame = () => {
     playSound(newHighScoreSound);
   }, [playSound]);
 
-  // Check for game over and high score
   useEffect(() => {
     if (gameOver && isNewHighScore) {
       setTimeout(() => {
@@ -67,10 +66,10 @@ const MathGame = () => {
 
   const getDifficultyRange = useCallback(() => {
     const ranges: Record<number, { max: number; min: number }> = {
-      1: { max: 20, min: 1 },    // Both numbers and sum within 20
-      2: { max: 30, min: 10 },    // Both numbers and sum within 30
-      3: { max: 50, min: 15 },    // Both numbers and sum within 50
-      4: { max: 100, min: 25 },   // Both numbers and sum within 100
+      1: { max: 20, min: 1 },
+      2: { max: 30, min: 10 },
+      3: { max: 50, min: 15 },
+      4: { max: 100, min: 20 },
     };
     return ranges[Math.min(level, MAX_LEVEL) as 1 | 2 | 3 | 4] || ranges[1];
   }, [level]);
@@ -108,6 +107,11 @@ const MathGame = () => {
     setFeedback('');
   }, [getDifficultyRange]);
 
+  const updateLevel = useCallback((newLevel: number) => {
+    setLevel(newLevel);
+    generateProblem();
+  }, [generateProblem]);
+
   const checkAnswer = useCallback(() => {
     const correctAnswer = operation === '+'
       ? num1 + num2
@@ -127,9 +131,14 @@ const MathGame = () => {
         if (newLevel > level) {
           playLevelUpSound();
           setFeedback(`Level Up! 🚀 Welcome to Level ${newLevel}!`);
+          updateLevel(newLevel);
         }
-        setLevel(newLevel);
         setLives(Math.min(lives + 1, MAX_LIVES));
+      } else {
+        setTimeout(() => {
+          setShowCelebration(false);
+          generateProblem();
+        }, 1500);
       }
 
       if (score + 1 > highScore) {
@@ -146,23 +155,16 @@ const MathGame = () => {
       setShowCelebration(false);
 
       if (level > 1) {
-        setLevel(level - 1);
         setFeedback(`Let's go back to Level ${level - 1} and try again!`);
+        updateLevel(level - 1);
       }
 
       if (newLives === 0) {
         setGameOver(true);
       }
     }
-
-    setTimeout(() => {
-      setShowCelebration(false);
-      if (lives > 1 || (lives === 1 && userAnswer === correctAnswer)) {
-        generateProblem();
-      }
-    }, 1500);
   }, [answer, generateProblem, highScore, level, lives, num1, num2, operation,
-      score, streak, playCorrectSound, playWrongSound, playLevelUpSound]);
+      score, streak, playCorrectSound, playWrongSound, playLevelUpSound, updateLevel]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && answer !== '') {
@@ -176,12 +178,8 @@ const MathGame = () => {
     if (savedScore) {
       setHighScore(parseInt(savedScore));
     }
-  }, []);
-
-  // Generate initial problem on mount and when level changes
-  useEffect(() => {
     generateProblem();
-  }, [level, generateProblem]);
+  }, [generateProblem]);
 
   const resetGame = () => {
     setLives(MAX_LIVES);
