@@ -66,7 +66,7 @@ const MathGame = () => {
 
   const getDifficultyRange = useCallback(() => {
     const ranges: Record<number, { max: number; min: number }> = {
-      1: { max: 20, min: 1 },
+      1: { max: 20, min: 3 },
       2: { max: 30, min: 10 },
       3: { max: 50, min: 15 },
       4: { max: 100, min: 20 },
@@ -80,24 +80,41 @@ const MathGame = () => {
     let newNum1, newNum2;
 
     if (newOperation === '+') {
-      // For addition, first pick the desired sum that's within range
-      const targetSum = Math.floor(Math.random() * (range.max - (MIN_DIFFERENCE + 1))) + (MIN_DIFFERENCE + 1);
+      // First decide the desired sum within range.max
+      const targetSum = Math.floor(Math.random() * (range.max - 2 * range.min + 1)) + 2 * range.min;
 
-      // Then find two numbers that add up to this sum
-      // First number should be at least 1
-      const maxFirstNum = targetSum - MIN_DIFFERENCE;  // Leave room for second number
-      newNum1 = Math.floor(Math.random() * (maxFirstNum - 1)) + 1;
-      newNum2 = targetSum - newNum1;  // This ensures sum equals targetSum
+      // Calculate possible range for first number
+      const minFirst = range.min;  // First number must be at least range.min
+      const maxFirst = Math.min(targetSum - range.min - MIN_DIFFERENCE, range.max - MIN_DIFFERENCE);
 
-      // Randomly swap the numbers
+      // Generate first number
+      newNum1 = Math.floor(Math.random() * (maxFirst - minFirst + 1)) + minFirst;
+
+      // Second number completes the sum
+      newNum2 = targetSum - newNum1;
+
+      // Verify numbers meet criteria
+      if (newNum2 < range.min || newNum2 > range.max ||
+          Math.abs(newNum1 - newNum2) < MIN_DIFFERENCE ||
+          newNum1 + newNum2 > range.max) {
+        // If criteria not met, retry with simpler numbers
+        newNum1 = range.min;
+        newNum2 = Math.min(range.max - range.min, range.min + MIN_DIFFERENCE);
+      }
+
+      // Randomly swap numbers
       if (Math.random() < 0.5) {
         [newNum1, newNum2] = [newNum2, newNum1];
       }
     } else {
-      // For subtraction, both numbers must be within range.max
-      newNum1 = Math.floor(Math.random() * (range.max - MIN_DIFFERENCE - range.min)) + range.min + MIN_DIFFERENCE;
-      const maxNum2 = newNum1 - MIN_DIFFERENCE;
-      newNum2 = Math.floor(Math.random() * (maxNum2 - range.min + 1)) + range.min;
+      // For subtraction:
+      // First number (larger) should be within range
+      newNum1 = Math.floor(Math.random() * (range.max - range.min - MIN_DIFFERENCE)) + range.min + MIN_DIFFERENCE;
+
+      // Second number (smaller) should be:
+      const minSecond = range.min;
+      const maxSecond = Math.min(newNum1 - MIN_DIFFERENCE, range.max - MIN_DIFFERENCE);
+      newNum2 = Math.floor(Math.random() * (maxSecond - minSecond + 1)) + minSecond;
     }
 
     setNum1(newNum1);
