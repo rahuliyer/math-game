@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trophy, Heart, Star, TrendingUp, Volume2, VolumeX } from 'lucide-react';
 
 // Constants
-const STREAK_FOR_LEVEL_UP = 5;
+const STREAK_FOR_LEVEL_UP = 10;
 const MAX_LEVEL = 4;
 const MAX_LIVES = 5;
 const MIN_DIFFERENCE = 5;
