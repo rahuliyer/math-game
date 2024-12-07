@@ -66,7 +66,7 @@ const MathGame = () => {
 
   const getDifficultyRange = useCallback(() => {
     const ranges: Record<number, { max: number; min: number }> = {
-      1: { max: 20, min: 3 },
+      1: { max: 20, min: 1 },
       2: { max: 30, min: 10 },
       3: { max: 50, min: 15 },
       4: { max: 100, min: 20 },
