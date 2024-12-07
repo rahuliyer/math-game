@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trophy, Heart, Star, TrendingUp } from 'lucide-react';
+import { Trophy, Heart, Star, TrendingUp, Volume2, VolumeX } from 'lucide-react';
 
 // Constants
-const STREAK_FOR_LEVEL_UP = 5;
+const STREAK_FOR_LEVEL_UP = 10;
 const MAX_LEVEL = 4;
 const MAX_LIVES = 5;
 const MIN_DIFFERENCE = 5;
@@ -24,6 +24,10 @@ const MathGame = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const [isNewHighScore, setIsNewHighScore] = useState(false);
   const [level, setLevel] = useState(1);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Audio context setup
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const getDifficultyRange = useCallback(() => {
     const ranges: Record<number, { max: number; min: number }> = {
@@ -35,17 +39,59 @@ const MathGame = () => {
     return ranges[Math.min(level, MAX_LEVEL) as 1 | 2 | 3 | 4] || ranges[1];
   }, [level]);
 
+  // Sound generation functions
+  const playSound = useCallback((frequency: number, duration: number, type: OscillatorType = 'sine') => {
+    if (!soundEnabled) return;
+
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      const oscillator = audioContextRef.current.createOscillator();
+      const gainNode = audioContextRef.current.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContextRef.current.destination);
+
+      oscillator.type = type;
+      oscillator.frequency.value = frequency;
+
+      gainNode.gain.setValueAtTime(0.2, audioContextRef.current.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + duration);
+
+      oscillator.start();
+      oscillator.stop(audioContextRef.current.currentTime + duration);
+    } catch (error) {
+      console.error('Error playing sound:', error);
+    }
+  }, [soundEnabled]);
+
+  const playCorrectSound = useCallback(() => {
+    playSound(800, 0.1, 'sine');
+    setTimeout(() => playSound(1200, 0.1, 'sine'), 100);
+  }, [playSound]);
+
+  const playWrongSound = useCallback(() => {
+    playSound(300, 0.2, 'triangle');
+  }, [playSound]);
+
+  const playLevelUpSound = useCallback(() => {
+    playSound(600, 0.1, 'sine');
+    setTimeout(() => playSound(800, 0.1, 'sine'), 100);
+    setTimeout(() => playSound(1000, 0.2, 'sine'), 200);
+  }, [playSound]);
+
   const generateProblem = useCallback(() => {
     const range = getDifficultyRange();
     const newOperation = Math.random() < 0.5 ? '+' : '-';
     let newNum1, newNum2;
 
     if (newOperation === '+') {
-      // Addition logic remains the same
       newNum1 = Math.floor(Math.random() * (range.max - range.min)) + range.min;
       newNum2 = Math.floor(Math.random() * (range.max - newNum1)) + range.min;
     } else {
-      // Modified subtraction logic to ensure difference > MIN_DIFFERENCE
+      // Ensure difference is at least MIN_DIFFERENCE
       newNum1 = Math.floor(Math.random() * (range.max - range.min - MIN_DIFFERENCE)) + range.min + MIN_DIFFERENCE;
       newNum2 = Math.floor(Math.random() * (newNum1 - range.min - MIN_DIFFERENCE)) + range.min;
     }
@@ -65,6 +111,7 @@ const MathGame = () => {
     const userAnswer = parseInt(answer);
 
     if (userAnswer === correctAnswer) {
+      playCorrectSound();
       setScore(score + 1);
       setStreak(streak + 1);
       setFeedback('Correct! 🎉');
@@ -73,6 +120,7 @@ const MathGame = () => {
       if (streak > 0 && streak % STREAK_FOR_LEVEL_UP === 0) {
         const newLevel = Math.min(level + 1, MAX_LEVEL);
         if (newLevel > level) {
+          playLevelUpSound();
           setFeedback(`Level Up! 🚀 Welcome to Level ${newLevel}!`);
         }
         setLevel(newLevel);
@@ -80,11 +128,13 @@ const MathGame = () => {
       }
 
       if (score + 1 > highScore) {
+        playLevelUpSound();
         setHighScore(score + 1);
         setIsNewHighScore(true);
         localStorage.setItem('mathGameHighScore', (score + 1).toString());
       }
     } else {
+      playWrongSound();
       setLives(lives - 1);
       setStreak(0);
       setFeedback(`Not quite! The answer was ${correctAnswer}. Try again!`);
@@ -102,7 +152,8 @@ const MathGame = () => {
         generateProblem();
       }
     }, 1500);
-  }, [answer, generateProblem, highScore, level, lives, num1, num2, operation, score, streak]);
+  }, [answer, generateProblem, highScore, level, lives, num1, num2, operation,
+      score, streak, playCorrectSound, playWrongSound, playLevelUpSound]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && answer !== '') {
@@ -116,12 +167,12 @@ const MathGame = () => {
     if (savedScore) {
       setHighScore(parseInt(savedScore));
     }
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
   // Generate initial problem on mount and when level changes
   useEffect(() => {
     generateProblem();
-  }, [level]); // Only regenerate when level changes
+  }, [level, generateProblem]);
 
   const CelebrationStars = () => (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -180,7 +231,17 @@ const MathGame = () => {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl sm:text-3xl text-center">Math Adventure!</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-2xl sm:text-3xl">Math Adventure!</CardTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className="h-8 w-8"
+          >
+            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {showCelebration && <CelebrationStars />}
