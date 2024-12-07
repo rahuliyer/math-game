@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Trophy, Heart, Star, TrendingUp, Volume2, VolumeX } from 'lucide-react';
 
 // Constants
-const STREAK_FOR_LEVEL_UP = 10;
+const STREAK_FOR_LEVEL_UP = 2;
 const MAX_LEVEL = 4;
 const MAX_LIVES = 5;
 const MIN_DIFFERENCE = 5;
@@ -67,10 +67,10 @@ const MathGame = () => {
 
   const getDifficultyRange = useCallback(() => {
     const ranges: Record<number, { max: number; min: number }> = {
-      1: { max: 20, min: 1 },
-      2: { max: 30, min: 10 },
-      3: { max: 50, min: 20 },
-      4: { max: 100, min: 30 },
+      1: { max: 20, min: 1 },    // Both numbers and sum within 20
+      2: { max: 30, min: 10 },    // Both numbers and sum within 30
+      3: { max: 50, min: 15 },    // Both numbers and sum within 50
+      4: { max: 100, min: 25 },   // Both numbers and sum within 100
     };
     return ranges[Math.min(level, MAX_LEVEL) as 1 | 2 | 3 | 4] || ranges[1];
   }, [level]);
@@ -81,26 +81,24 @@ const MathGame = () => {
     let newNum1, newNum2;
 
     if (newOperation === '+') {
-      // Generate first number
-      const smaller = Math.floor(Math.random() * (range.max - range.min - MIN_DIFFERENCE)) + range.min;
-      // Generate larger number ensuring MIN_DIFFERENCE gap
-      const minLarger = Math.max(range.min, smaller + MIN_DIFFERENCE);
-      const maxLarger = Math.min(range.max, smaller + (range.max - smaller));
-      const larger = Math.floor(Math.random() * (maxLarger - minLarger)) + minLarger;
+      // For addition, first pick the desired sum that's within range
+      const targetSum = Math.floor(Math.random() * (range.max - (MIN_DIFFERENCE + 1))) + (MIN_DIFFERENCE + 1);
 
-      // Randomly decide which number goes first
+      // Then find two numbers that add up to this sum
+      // First number should be at least 1
+      const maxFirstNum = targetSum - MIN_DIFFERENCE;  // Leave room for second number
+      newNum1 = Math.floor(Math.random() * (maxFirstNum - 1)) + 1;
+      newNum2 = targetSum - newNum1;  // This ensures sum equals targetSum
+
+      // Randomly swap the numbers
       if (Math.random() < 0.5) {
-        newNum1 = smaller;
-        newNum2 = larger;
-      } else {
-        newNum1 = larger;
-        newNum2 = smaller;
+        [newNum1, newNum2] = [newNum2, newNum1];
       }
     } else {
-      // For subtraction, first number must be larger
-      newNum1 = Math.floor(Math.random() * (range.max - range.min - MIN_DIFFERENCE)) + range.min + MIN_DIFFERENCE;
+      // For subtraction, both numbers must be within range.max
+      newNum1 = Math.floor(Math.random() * (range.max - MIN_DIFFERENCE - range.min)) + range.min + MIN_DIFFERENCE;
       const maxNum2 = newNum1 - MIN_DIFFERENCE;
-      newNum2 = Math.floor(Math.random() * (maxNum2 - range.min)) + range.min;
+      newNum2 = Math.floor(Math.random() * (maxNum2 - range.min + 1)) + range.min;
     }
 
     setNum1(newNum1);
