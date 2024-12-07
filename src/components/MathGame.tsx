@@ -20,7 +20,7 @@ const newHighScoreSound = typeof Audio !== 'undefined' ? new Audio('/new_high_sc
 const MathGame = () => {
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
-  const [lives, setLives] = useState(3);
+  const [lives, setLives] = useState(MAX_LIVES);
   const [num1, setNum1] = useState(0);
   const [num2, setNum2] = useState(0);
   const [operation, setOperation] = useState('+');
@@ -186,7 +186,7 @@ const MathGame = () => {
   }, [level, generateProblem]);
 
   const resetGame = () => {
-    setLives(3);
+    setLives(MAX_LIVES);
     setScore(0);
     setStreak(0);
     setLevel(1);
