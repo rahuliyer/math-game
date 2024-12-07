@@ -1,13 +1,12 @@
-// src/components/MathGame.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Heart, Star, TrendingUp } from 'lucide-react';
 
 // Constants
-const STREAK_FOR_LEVEL_UP = 10;
+const STREAK_FOR_LEVEL_UP = 5;
 const MAX_LEVEL = 4;
 const MAX_LIVES = 5;
 
@@ -25,14 +24,7 @@ const MathGame = () => {
   const [isNewHighScore, setIsNewHighScore] = useState(false);
   const [level, setLevel] = useState(1);
 
-  useEffect(() => {
-    const savedScore = localStorage.getItem('mathGameHighScore');
-    if (savedScore) {
-      setHighScore(parseInt(savedScore));
-    }
-  }, []);
-
-  const getDifficultyRange = () => {
+  const getDifficultyRange = useCallback(() => {
     const ranges: Record<number, { max: number; min: number }> = {
       1: { max: 20, min: 1 },
       2: { max: 30, min: 10 },
@@ -40,30 +32,24 @@ const MathGame = () => {
       4: { max: 100, min: 30 },
     };
     return ranges[Math.min(level, MAX_LEVEL) as 1 | 2 | 3 | 4] || ranges[1];
-  };
+  }, [level]);
 
-  const generateProblem = () => {
+  const generateProblem = useCallback(() => {
     const range = getDifficultyRange();
-    let newNum1, newNum2, newOperation;
-
-    newOperation = Math.random() < 0.5 ? '+' : '-';
-
-    if (newOperation === '+') {
-      newNum1 = Math.floor(Math.random() * (range.max - range.min)) + range.min;
-      newNum2 = Math.floor(Math.random() * (range.max - newNum1)) + range.min;
-    } else {
-      newNum1 = Math.floor(Math.random() * (range.max - range.min)) + range.min;
-      newNum2 = Math.floor(Math.random() * (newNum1 - range.min)) + range.min;
-    }
+    const newOperation = Math.random() < 0.5 ? '+' : '-';
+    const newNum1 = Math.floor(Math.random() * (range.max - range.min)) + range.min;
+    const newNum2 = newOperation === '+'
+      ? Math.floor(Math.random() * (range.max - newNum1)) + range.min
+      : Math.floor(Math.random() * (newNum1 - range.min)) + range.min;
 
     setNum1(newNum1);
     setNum2(newNum2);
     setOperation(newOperation);
     setAnswer('');
     setFeedback('');
-  };
+  }, [getDifficultyRange]);
 
-  const checkAnswer = () => {
+  const checkAnswer = useCallback(() => {
     const correctAnswer = operation === '+'
       ? num1 + num2
       : num1 - num2;
@@ -76,7 +62,7 @@ const MathGame = () => {
       setFeedback('Correct! 🎉');
       setShowCelebration(true);
 
-    if (streak > 0 && streak % STREAK_FOR_LEVEL_UP === 0) {
+      if (streak > 0 && streak % STREAK_FOR_LEVEL_UP === 0) {
         const newLevel = Math.min(level + 1, MAX_LEVEL);
         if (newLevel > level) {
           setFeedback(`Level Up! 🚀 Welcome to Level ${newLevel}!`);
@@ -108,17 +94,26 @@ const MathGame = () => {
         generateProblem();
       }
     }, 1500);
-  };
-
-  useEffect(() => {
-    generateProblem();
-  }, [level]);
+  }, [answer, generateProblem, highScore, level, lives, num1, num2, operation, score, streak]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && answer !== '') {
       checkAnswer();
     }
   };
+
+  // Load high score on mount only
+  useEffect(() => {
+    const savedScore = localStorage.getItem('mathGameHighScore');
+    if (savedScore) {
+      setHighScore(parseInt(savedScore));
+    }
+  }, []); // Empty dependency array means this runs once on mount
+
+  // Generate initial problem on mount and when level changes
+  useEffect(() => {
+    generateProblem();
+  }, [level]); // Only regenerate when level changes
 
   const CelebrationStars = () => (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -237,7 +232,7 @@ const MathGame = () => {
 
         <div className="text-center space-y-2">
           <p className="text-base sm:text-lg">Streak: {streak}</p>
-          {streak > 0 && streak % 5 === 0 && (
+          {streak > 0 && streak % STREAK_FOR_LEVEL_UP === 0 && (
             <p className="text-sm sm:text-base text-green-500 font-medium">
               Next correct answer advances to next level! 🚀
             </p>
