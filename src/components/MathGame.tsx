@@ -11,12 +11,10 @@ const MAX_LEVEL = 4;
 const MAX_LIVES = 5;
 const MIN_DIFFERENCE = 5;
 
-// Audio Context type
-declare global {
-  interface Window {
-    webkitAudioContext: typeof AudioContext;
-  }
-}
+// Sound setup
+const correctSound = typeof Audio !== 'undefined' ? new Audio('/correct.mp3') : null;
+const wrongSound = typeof Audio !== 'undefined' ? new Audio('/wrong.mp3') : null;
+const levelUpSound = typeof Audio !== 'undefined' ? new Audio('/levelup.mp3') : null;
 
 const MathGame = () => {
   const [score, setScore] = useState(0);
@@ -32,68 +30,25 @@ const MathGame = () => {
   const [isNewHighScore, setIsNewHighScore] = useState(false);
   const [level, setLevel] = useState(1);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
 
-  const initAudioContext = useCallback(() => {
-    if (!audioContext && typeof window !== 'undefined') {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      setAudioContext(ctx);
+  const playSound = useCallback((sound: HTMLAudioElement | null) => {
+    if (soundEnabled && sound) {
+      sound.currentTime = 0;
+      sound.play().catch(error => console.log('Audio playback error:', error));
     }
-  }, [audioContext]);
-
-  const playSound = useCallback((frequency: number, duration: number, type: OscillatorType = 'sine') => {
-    if (!soundEnabled || !audioContext) return;
-
-    try {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      oscillator.type = type;
-      oscillator.frequency.value = frequency;
-
-      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-
-      oscillator.start();
-      oscillator.stop(audioContext.currentTime + duration);
-    } catch (error) {
-      console.error('Error playing sound:', error);
-    }
-  }, [soundEnabled, audioContext]);
+  }, [soundEnabled]);
 
   const playCorrectSound = useCallback(() => {
-    playSound(800, 0.1, 'sine');
-    setTimeout(() => playSound(1200, 0.1, 'sine'), 100);
+    playSound(correctSound);
   }, [playSound]);
 
   const playWrongSound = useCallback(() => {
-    playSound(300, 0.2, 'triangle');
+    playSound(wrongSound);
   }, [playSound]);
 
   const playLevelUpSound = useCallback(() => {
-    playSound(600, 0.1, 'sine');
-    setTimeout(() => playSound(800, 0.1, 'sine'), 100);
-    setTimeout(() => playSound(1000, 0.2, 'sine'), 200);
+    playSound(levelUpSound);
   }, [playSound]);
-
-  useEffect(() => {
-    const handleInteraction = () => {
-      if (audioContext?.state === 'suspended') {
-        audioContext.resume();
-      }
-    };
-
-    document.addEventListener('touchstart', handleInteraction);
-    document.addEventListener('click', handleInteraction);
-
-    return () => {
-      document.removeEventListener('touchstart', handleInteraction);
-      document.removeEventListener('click', handleInteraction);
-    };
-  }, [audioContext]);
 
   const getDifficultyRange = useCallback(() => {
     const ranges: Record<number, { max: number; min: number }> = {
@@ -127,10 +82,6 @@ const MathGame = () => {
   }, [getDifficultyRange]);
 
   const checkAnswer = useCallback(() => {
-    if (!audioContext) {
-      initAudioContext();
-    }
-
     const correctAnswer = operation === '+'
       ? num1 + num2
       : num1 - num2;
@@ -180,7 +131,7 @@ const MathGame = () => {
       }
     }, 1500);
   }, [answer, generateProblem, highScore, level, lives, num1, num2, operation,
-      score, streak, playCorrectSound, playWrongSound, playLevelUpSound, audioContext, initAudioContext]);
+      score, streak, playCorrectSound, playWrongSound, playLevelUpSound]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && answer !== '') {
@@ -263,10 +214,7 @@ const MathGame = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => {
-              initAudioContext();
-              setSoundEnabled(!soundEnabled);
-            }}
+            onClick={() => setSoundEnabled(!soundEnabled)}
             className="h-8 w-8"
           >
             {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
